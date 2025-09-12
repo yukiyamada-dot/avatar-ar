@@ -1,0 +1,27 @@
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Avatar AR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="text-align:center; font-family:sans-serif;">
+
+    <h2>Tap to view my Avatar in AR</h2>
+
+    <!-- iPhone 用 (USDZ) -->
+    <a rel="ar" href="avatar.usdz">
+      <img src="thumbnail.png" alt="View in AR" width="200"/>
+    </a>
+    <p>iPhone: Tap the image above</p>
+
+    <!-- Android 用 (GLB) -->
+    <model-viewer src="avatar.glb" ar ar-modes="scene-viewer webxr quick-look"
+      camera-controls auto-rotate style="width: 100%; height: 500px;">
+    </model-viewer>
+    <p>Android: Use the AR button</p>
+
+    <!-- model-viewer ライブラリ -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+
+  </body>
+</html>
