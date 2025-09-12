@@ -1,27 +1,43 @@
 <!DOCTYPE html>
-<html>
+<html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>My Avatar AR</title>
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AR 3D Avatar - Yuki</title>
+  <!-- model-viewer の読み込み -->
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
+  <style>
+    body {
+      margin: 0;
+      font-family: sans-serif;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+      background-color: #f0f0f0;
+    }
+    model-viewer {
+      width: 80%;
+      max-width: 600px;
+      height: 80%;
+      border: 1px solid #ccc;
+      border-radius: 10px;
+    }
+  </style>
 </head>
-<body style="text-align:center; font-family:sans-serif;">
+<body>
 
-  <h2>Tap to view my Avatar in AR</h2>
-
-  <!-- 3Dモデル表示 & AR対応 -->
-  <model-viewer src="Yuki.glb"
-                alt="My Avatar"
-                ar
-                ar-modes="scene-viewer webxr quick-look"
-                camera-controls
-                auto-rotate
-                style="width: 10%; max-width: 40px; height: 40px;">
-  </model-viewer>
-
-  <p>スマホのARボタンを押すと、端末に応じてAR表示されます。</p>
+<model-viewer 
+    src="Yuki.glb"            <!-- ファイル名を指定 -->
+    alt="3D Avatar Yuki" 
+    autoplay                  <!-- アニメーション自動再生 -->
+    camera-controls           <!-- カメラ操作可能 -->
+    ar                        <!-- AR対応 -->
+    ar-modes="webxr scene-viewer quick-look" <!-- Android/iOS対応 -->
+    environment-image="neutral" <!-- 環境マップで自然な反射 -->
+    auto-rotate               <!-- 自動回転（任意） -->
+>
+</model-viewer>
 
 </body>
 </html>
-
