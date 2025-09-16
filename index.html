@@ -2,42 +2,58 @@
 <html lang="ja">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Yuki AR (Animated, iPhone対応)</title>
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>Yuki AR (iPhone対応・アニメ再生)</title>
 
-  <!-- A-Frame & AR.js（markerベース、iOS Safariで動作） -->
+  <!-- A-Frame & AR.js（iOS Safari対応） -->
   <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/ar-js-org@3.4.5/aframe/build/aframe-ar.js"></script>
 
   <style>
     html, body { margin:0; height:100%; background:#000; }
+    #gate {
+      position: fixed; inset: 0; display:flex; align-items:center; justify-content:center;
+      background:#000; color:#fff; z-index: 9999; flex-direction:column; gap:12px; padding:24px; text-align:center;
+    }
+    #gate button {
+      padding:12px 16px; font-size:16px; border:0; border-radius:12px; background:#fff; color:#000;
+    }
     .hint {
       position: fixed; left: 10px; bottom: 10px;
       color: #fff; font: 12px/1.4 system-ui, -apple-system, Segoe UI, Roboto, sans-serif;
-      opacity: .85;
+      opacity: .85; z-index: 10;
+    }
+    #err {
+      position: fixed; top: 10px; left: 10px; right:10px;
+      color:#fff; background: rgba(255,0,0,.3); padding:8px 12px; border-radius:8px; font: 12px/1.4 system-ui;
+      display:none; z-index:10;
     }
   </style>
 </head>
 <body>
-  <!--
-    ポイント：
-    - arjs: Webカメラ/モバイルカメラを利用（Safari可）
-    - <a-marker preset="hiro">: HIROマーカー上に表示（ファイル不要）
-    - gltf-model: 同階層の Yuki.glb を読み込み
-    - animation-mixer: GLBに含まれるアニメを自動再生（Play all）。1つだけでもOK
-      * clip="*" で全トラック、loop="repeat" でループ
-  -->
+  <!-- カメラ権限を“ユーザー操作”で確実に出すためのゲート -->
+  <div id="gate">
+    <div>📷 ARを開始するにはカメラ許可が必要です。<br>Safariでこのページを開き、下のボタンを押してください。</div>
+    <button id="startBtn">カメラを開始</button>
+    <div style="opacity:.7; font-size:12px">
+      ※iOS: 設定 > Safari > カメラ を「許可」にしてください。
+    </div>
+  </div>
+
+  <div id="err"></div>
+  <div class="hint">📌 HIROマーカーにかざすとYukiがアニメ再生で出現します。</div>
+
   <a-scene
     vr-mode-ui="enabled: false"
     embedded
-    renderer="colorManagement: true; physicallyCorrectLights: true;"
-    arjs="sourceType: webcam; detectionMode: mono_and_matrix; matrixCodeType: 3x3; debugUIEnabled: false;"
+    renderer="alpha: true; antialias: true; physicallyCorrectLights: true;"
+    arjs="sourceType: webcam; facingMode: environment; detectionMode: mono_and_matrix; matrixCodeType: 3x3; debugUIEnabled: false;"
   >
     <a-assets>
       <a-asset-item id="yuki" src="Yuki.glb"></a-asset-item>
     </a-assets>
 
-    <!-- マーカーにかざすと表示（HIROマーカー） -->
+    <!-- HIROマーカー上に表示 -->
     <a-marker preset="hiro">
       <a-entity
         gltf-model="#yuki"
@@ -46,15 +62,51 @@
         rotation="0 0 0"
         scale="0.6 0.6 0.6"
       ></a-entity>
-      <!-- 影が欲しい場合は簡易ライトを追加 -->
       <a-entity light="type: directional; intensity: 1" position="1 2 1"></a-entity>
       <a-entity light="type: ambient; intensity: 0.5"></a-entity>
     </a-marker>
 
-    <!-- マーカー検出外のときは非表示 -->
     <a-entity camera></a-entity>
   </a-scene>
 
-  <div class="hint">📌 HIROマーカーにかざすとYukiがアニメ再生で出現します。</div>
+  <script>
+    const gate = document.getElementById('gate');
+    const errBox = document.getElementById('err');
+    const startBtn = document.getElementById('startBtn');
+
+    function showError(msg){
+      errBox.textContent = 'エラー: ' + msg;
+      errBox.style.display = 'block';
+    }
+
+    async function requestCameraPermission() {
+      // 明示操作で getUserMedia → 許可ダイアログを確実に表示
+      try {
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: "environment" } }
+        }).catch(async () => {
+          // 背面が取れない端末向けフォールバック
+          return navigator.mediaDevices.getUserMedia({ video: true });
+        });
+        // すぐ停止（AR.jsに委ねる）
+        stream.getTracks().forEach(t => t.stop());
+        gate.style.display = 'none';
+      } catch (e) {
+        showError(e && e.message ? e.message : String(e));
+      }
+    }
+
+    startBtn.addEventListener('click', requestCameraPermission);
+
+    // 追加: iOSで権限が既にある場合は自動でゲートを閉じる
+    (async () => {
+      if (navigator.permissions && navigator.permissions.query) {
+        try {
+          const s = await navigator.permissions.query({ name: 'camera' });
+          if (s.state === 'granted') gate.style.display = 'none';
+        } catch(_) {}
+      }
+    })();
+  </script>
 </body>
 </html>
