@@ -2,96 +2,65 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR 3D Avatar - Yuki</title>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"></script>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js"></script>
-  <script type="module" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/webxr/ARButton.js"></script>
+  <title>アニメーション付きARアバター</title>
+  <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; font-family: sans-serif; background: #f9f9f9; }
-    #ios-link { display: none; text-align: center; margin-top: 40px; }
-    #ios-link img { border: 1px solid #ccc; border-radius: 8px; }
-    canvas { display: block; }
+    body {
+      margin: 0;
+      padding: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-family: sans-serif;
+    }
+    model-viewer {
+      width: 100%;
+      max-width: 600px;
+      height: 80vh;
+      background-color: #f0f0f0;
+    }
+    button {
+      margin-top: 10px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
   </style>
 </head>
 <body>
 
-<!-- iOS用のARリンク（Quick Look） -->
-<div id="ios-link">
-  <a rel="ar" href="Yuki_02.usdz">
-    <img src="Yuki_thumbnail.png" alt="3D Avatar Yuki" style="width:300px;">
-    <br>iOSでAR表示
-  </a>
-</div>
+<h1>アニメーション付きARアバター</h1>
 
-<script type="module">
-import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js';
-import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js';
-import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/webxr/ARButton.js';
+<!-- GLBモデル表示 -->
+<model-viewer 
+    id="avatarModel"
+    src="avatar.glb"      <!-- GLBファイル -->
+    alt="アニメーションアバター"
+    auto-rotate
+    camera-controls
+    ar
+    ar-modes="webxr scene-viewer quick-look"
+    animation-name="all"
+    autoplay>
+</model-viewer>
 
-function isIOS() {
-    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-}
+<!-- AR起動ボタン（iOSでも動作） -->
+<button id="enterAR">ARで表示</button>
 
-function isAndroid() {
-    return /Android/.test(navigator.userAgent);
-}
+<script>
+  const modelViewer = document.getElementById('avatarModel');
+  const arButton = document.getElementById('enterAR');
 
-// iOS の場合は Quick Look リンクを表示
-if (isIOS()) {
-    document.getElementById('ios-link').style.display = 'block';
-} 
-// Android の場合は WebXR で GLB を表示
-else if (isAndroid()) {
-    let scene = new THREE.Scene();
-    let camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-    let renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
-    renderer.setSize(window.innerWidth, window.innerHeight);
-    renderer.xr.enabled = true;
-    document.body.appendChild(renderer.domElement);
-
-    // ARボタンを追加
-    document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
-
-    // 環境光
-    const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
-    light.position.set(0.5, 1, 0.25);
-    scene.add(light);
-
-    // アニメーション用の設定
-    let mixer, clock = new THREE.Clock();
-
-    // GLBをロード
-    const loader = new GLTFLoader();
-    loader.load('Yuki.glb', function(gltf){
-        const model = gltf.scene;
-        model.scale.set(0.5, 0.5, 0.5);
-        scene.add(model);
-
-        if (gltf.animations && gltf.animations.length) {
-            mixer = new THREE.AnimationMixer(model);
-            gltf.animations.forEach((clip)=> mixer.clipAction(clip).play());
-        }
-    });
-
-    // リサイズ対応
-    window.addEventListener('resize', ()=>{
-        camera.aspect = window.innerWidth / window.innerHeight;
-        camera.updateProjectionMatrix();
-        renderer.setSize(window.innerWidth, window.innerHeight);
-    });
-
-    // レンダリングループ
-    renderer.setAnimationLoop(()=>{
-        const delta = clock.getDelta();
-        if (mixer) mixer.update(delta);
-        renderer.render(scene, camera);
-    });
-}
-// どちらでもない場合（PCなど）は注意文表示
-else {
-    document.body.innerHTML = "<p style='text-align:center;margin-top:40px;'>このデモはスマートフォンでご覧ください。</p>";
-}
+  arButton.addEventListener('click', () => {
+    // WebXR ARを起動
+    if (modelViewer.activateAR) {
+      modelViewer.activateAR();
+    } else {
+      alert("ARモードに対応していません。Safari最新バージョンをお試しください。");
+    }
+  });
 </script>
+
 </body>
 </html>
