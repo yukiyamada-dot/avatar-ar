@@ -3,60 +3,65 @@
 <head>
   <meta charset="utf-8" />
   <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
-  <title>Yuki WebAR (Markerless + Animation)</title>
+  <title>Yuki WebAR (Markerless + Animation, iPhone対応)</title>
 
   <!-- A-Frame -->
   <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-  <!-- Zappar for A-Frame（iOS Safari対応のWebAR。開発は無料・透かし入り） -->
+  <!-- Zappar for A-Frame -->
   <script src="https://libs.zappar.com/zappar-aframe/2.0.0/zappar-aframe.js"></script>
 
   <style>
     html, body { margin:0; height:100%; background:#000; }
-    #ui {
-      position: fixed; inset: 0; pointer-events:none; display:flex; align-items:flex-end; justify-content:center;
-      padding: 16px;
+    #gate {
+      position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+      flex-direction: column; gap: 12px; background:#000; color:#fff; z-index: 9999; text-align:center; padding: 24px;
     }
-    #fixBtn, #placeBtn {
+    #gate button {
       pointer-events:auto; appearance:none; border:0; border-radius: 14px; padding: 12px 16px;
       font: 15px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
       background:#fff; color:#000; box-shadow: 0 6px 20px rgba(0,0,0,.25);
-      margin: 0 8px;
     }
     #hint {
       position: fixed; left: 10px; top: 10px; color:#fff; font:12px/1.4 system-ui; opacity:.85;
-      text-shadow: 0 1px 2px rgba(0,0,0,.6);
+      text-shadow: 0 1px 2px rgba(0,0,0,.6); z-index: 10;
     }
+    a-scene { display: none; } /* 権限が通ったら表示に切替 */
   </style>
 </head>
 <body>
-  <div id="hint">📱 カメラ許可 → 周囲をゆっくり見回す → 位置が安定したら画面タップで固定</div>
+  <div id="hint">📱 Safariでこのページを開き、下のボタン → カメラ許可 → 周囲を見回してから画面タップで固定</div>
 
-  <!--
-    zappar-camera: iOS Safariでも動くWebARカメラ
-    user-facing を false にすると背面カメラ優先
-  -->
+  <!-- 互換性＆権限UI（Zappar公式の組み込み） -->
+  <zappar-compatibility-ui></zappar-compatibility-ui>
+  <zappar-permission-ui></zappar-permission-ui>
+
+  <!-- 明示操作で権限を確実化するゲート -->
+  <div id="gate">
+    <div>ARを開始するにはカメラ許可が必要です。<br><b>Safariで直接</b>このページを開き、下のボタンを押してください。</div>
+    <button id="startBtn">ARを開始</button>
+    <div style="opacity:.75; font-size:12px">
+      うまくいかない時は：設定 ▶︎ Safari ▶︎ カメラ ▶︎ <b>許可</b>／このサイトの設定でカメラ<b>許可</b>／httpsでアクセス
+    </div>
+  </div>
+
+  <!-- A-Frame + Zappar（ワールドトラッキング） -->
   <a-scene
+    id="scene"
     renderer="alpha:true; antialias:true; physicallyCorrectLights:true"
     vr-mode-ui="enabled:false"
     embedded
     loading-screen="enabled:false"
   >
-    <a-entity
-      id="zapparCamera"
-      zappar-camera="user-facing:false"
-      camera
-    ></a-entity>
+    <!-- 背面カメラ優先 -->
+    <a-entity id="zapparCamera" zappar-camera="user-facing:false" camera></a-entity>
 
-    <!-- 簡易ライト -->
+    <!-- ライト -->
     <a-entity light="type: directional; intensity: 1" position="1 2 1"></a-entity>
     <a-entity light="type: ambient; intensity: 0.5"></a-entity>
 
-    <!--
-      zappar-instant: マーカー不要の“インスタントワールドトラッキング”
-      - placement-mode:true の間は配置ガイドを表示し、タップで false（固定）に切替
-    -->
+    <!-- マーカーレス（インスタントワールドトラッキング） -->
     <a-entity id="anchor" zappar-instant="placement-mode: true">
-      <!-- 配置ガイド（白いリング） -->
+      <!-- 配置ガイド（白リング） -->
       <a-entity
         id="placement"
         geometry="primitive: ring; radiusInner: 0.08; radiusOuter: 0.1"
@@ -64,67 +69,58 @@
         material="color: #ffffff; metalness:0.2; roughness:0.5; opacity:0.9"
       ></a-entity>
 
-      <!-- あなたのGLB（アニメ入り）。固定後に見える位置・サイズに調整 -->
+      <!-- GLB（アニメ入り） -->
       <a-entity id="yuki"
         gltf-model="Yuki.glb"
         position="0 0 0"
         rotation="0 180 0"
         scale="0.6 0.6 0.6"
         visible="false"
-        animation-mixer="clip: *; loop: repeat; timeScale: 1"
-      ></a-entity>
+        animation-mixer="clip: *; loop: repeat; timeScale: 1">
+      </a-entity>
     </a-entity>
   </a-scene>
 
-  <!-- UI（配置解除 / 再配置） -->
-  <div id="ui">
-    <button id="placeBtn" style="display:none">ここに置く（固定）</button>
-    <button id="fixBtn" style="display:none">位置を調整</button>
-  </div>
-
   <script>
+    const gate = document.getElementById('gate');
+    const scene = document.getElementById('scene');
     const anchor = document.getElementById('anchor');
-    const yuki = document.getElementById('yuki');
     const placement = document.getElementById('placement');
-    const placeBtn = document.getElementById('placeBtn');
-    const fixBtn = document.getElementById('fixBtn');
+    const yuki = document.getElementById('yuki');
 
-    // 配置モード中はガイドを表示＆ボタン切替
     function updateUI() {
       const isPlacing = anchor.getAttribute('zappar-instant').placementMode;
       placement.setAttribute('visible', isPlacing);
-      placeBtn.style.display = isPlacing ? 'inline-block' : 'none';
-      fixBtn.style.display = isPlacing ? 'none' : 'inline-block';
       yuki.setAttribute('visible', !isPlacing);
     }
 
-    // 初期：配置モード（true）
-    updateUI();
-
-    // 画面タップでも固定に切り替えられるように
+    // 画面タップで固定／再配置
     document.body.addEventListener('click', (e) => {
-      // ボタンタップは除外
-      if (e.target === placeBtn || e.target === fixBtn) return;
+      // gateが表示中は無視
+      if (gate.style.display !== 'none') return;
       const isPlacing = anchor.getAttribute('zappar-instant').placementMode;
       if (isPlacing) {
-        anchor.setAttribute('zappar-instant', 'placement-mode: false');
+        anchor.setAttribute('zappar-instant', 'placement-mode: false'); // 固定
         updateUI();
       }
     });
 
-    // ボタンで固定／再配置
-    placeBtn.addEventListener('click', () => {
-      anchor.setAttribute('zappar-instant', 'placement-mode: false');
-      updateUI();
-    });
-    fixBtn.addEventListener('click', () => {
-      anchor.setAttribute('zappar-instant', 'placement-mode: true');
-      updateUI();
-    });
+    // 「ARを開始」ボタン：ユーザー操作で権限ダイアログを必ず出す
+    document.getElementById('startBtn').addEventListener('click', async () => {
+      try {
+        // 一度 getUserMedia を明示操作で呼んで権限を確実化（すぐ停止）
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact: 'environment' } }
+        }).catch(() => navigator.mediaDevices.getUserMedia({ video: true }));
+        stream.getTracks().forEach(t => t.stop());
 
-    // 端末起動直後はセッションが落ち着くまで少し待ってから可視化
-    document.addEventListener('zappar-initialized', () => {
-      // 配置ガイドからモデルまでの高さを調整したければ position を編集してください
+        // 権限OKならZapparシーンを表示
+        gate.style.display = 'none';
+        scene.style.display = 'block';
+        updateUI();
+      } catch (e) {
+        alert('カメラ権限が得られませんでした。\n設定 > Safari > カメラ を「許可」にし、Safariでhttpsページを開いてください。\n\n詳細: ' + (e && e.message ? e.message : e));
+      }
     });
   </script>
 </body>
