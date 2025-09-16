@@ -1,52 +1,27 @@
-<!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Zappar Permission Test</title>
-<script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-<script src="https://libs.zappar.com/zappar-aframe/2.0.0/zappar-aframe.js"></script>
-<style>
-  body{margin:0;background:#000;color:#fff;font:14px/1.5 system-ui;padding:16px}
-  #log{white-space:pre-wrap;background:#111;padding:10px;border-radius:10px;margin-top:12px}
-  button{padding:10px 14px;border:0;border-radius:10px}
-  a-scene{display:none}
-</style>
-<h1>Zappar Permission Test</h1>
-<p>Safariで<strong>直接</strong>開き、「権限を試す」を押してください。</p>
-<button id="btn">権限を試す</button>
-<pre id="log"></pre>
+<!DOCTYPE html>
+<html>
+  <head>
+    <title>My Avatar AR</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  </head>
+  <body style="text-align:center; font-family:sans-serif;">
 
-<zappar-compatibility-ui></zappar-compatibility-ui>
-<zappar-permission-ui></zappar-permission-ui>
+    <h2>Tap to view my Avatar in AR</h2>
 
-<a-scene id="scene" embedded vr-mode-ui="enabled:false">
-  <a-entity zappar-camera="user-facing:false" camera></a-entity>
-</a-scene>
+    <!-- iPhone 用 (USDZ) -->
+    <a rel="ar" href="avatar.usdz">
+      <img src="thumbnail.png" alt="View in AR" width="200"/>
+    </a>
+    <p>iPhone: Tap the image above</p>
 
-<script>
-const logEl = document.getElementById('log');
-const log = (...a)=>{logEl.textContent += a.join(' ')+'\n';};
+    <!-- Android 用 (GLB) -->
+    <model-viewer src="avatar.glb" ar ar-modes="scene-viewer webxr quick-look"
+      camera-controls auto-rotate style="width: 100%; height: 500px;">
+    </model-viewer>
+    <p>Android: Use the AR button</p>
 
-document.getElementById('btn').onclick = async ()=>{
-  try{
-    log('step1: Zappar permission request…');
-    const granted = await ZapparAFrame.permission.requestCameraPermissionsAsync();
-    log('  result:', granted);
-    if(!granted){ log('⛔ Zappar permission denied'); return; }
+    <!-- model-viewer ライブラリ -->
+    <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
 
-    log('step2: getUserMedia…');
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact:'environment' } }
-    }).catch(async (e)=>{
-      log('  environment failed:', e && e.name ? `${e.name}: ${e.message}` : e);
-      return navigator.mediaDevices.getUserMedia({ video:true });
-    });
-    log('  gUM success, tracks=', stream.getVideoTracks().length);
-    stream.getTracks().forEach(t=>t.stop());
-
-    log('step3: show scene');
-    document.getElementById('scene').style.display = 'block';
-    log('✅ DONE (ここまで来ればZappar起動条件は満たせます)');
-  }catch(e){
-    log('❌ error:', e && e.name ? `${e.name}: ${e.message}` : e);
-  }
-};
-</script>
+  </body>
+</html>
