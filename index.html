@@ -1,23 +1,52 @@
-document.getElementById('startBtn').addEventListener('click', async () => {
-  try {
-    const granted = await ZapparAFrame.permission.requestCameraPermissionsAsync();
-    console.log("Zappar permission result:", granted);
-    if (!granted) {
-      alert("Zappar permission API: 拒否されました");
-      return;
-    }
-    const stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: { exact: 'environment' } } })
-      .catch(e => {
-        console.error("背面指定失敗:", e);
-        return navigator.mediaDevices.getUserMedia({ video: true });
-      });
-    console.log("getUserMedia stream:", stream);
-    stream.getTracks().forEach(t => t.stop());
+<!doctype html>
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Zappar Permission Test</title>
+<script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+<script src="https://libs.zappar.com/zappar-aframe/2.0.0/zappar-aframe.js"></script>
+<style>
+  body{margin:0;background:#000;color:#fff;font:14px/1.5 system-ui;padding:16px}
+  #log{white-space:pre-wrap;background:#111;padding:10px;border-radius:10px;margin-top:12px}
+  button{padding:10px 14px;border:0;border-radius:10px}
+  a-scene{display:none}
+</style>
+<h1>Zappar Permission Test</h1>
+<p>Safariで<strong>直接</strong>開き、「権限を試す」を押してください。</p>
+<button id="btn">権限を試す</button>
+<pre id="log"></pre>
 
-    document.getElementById('gate').style.display = 'none';
+<zappar-compatibility-ui></zappar-compatibility-ui>
+<zappar-permission-ui></zappar-permission-ui>
+
+<a-scene id="scene" embedded vr-mode-ui="enabled:false">
+  <a-entity zappar-camera="user-facing:false" camera></a-entity>
+</a-scene>
+
+<script>
+const logEl = document.getElementById('log');
+const log = (...a)=>{logEl.textContent += a.join(' ')+'\n';};
+
+document.getElementById('btn').onclick = async ()=>{
+  try{
+    log('step1: Zappar permission request…');
+    const granted = await ZapparAFrame.permission.requestCameraPermissionsAsync();
+    log('  result:', granted);
+    if(!granted){ log('⛔ Zappar permission denied'); return; }
+
+    log('step2: getUserMedia…');
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { exact:'environment' } }
+    }).catch(async (e)=>{
+      log('  environment failed:', e && e.name ? `${e.name}: ${e.message}` : e);
+      return navigator.mediaDevices.getUserMedia({ video:true });
+    });
+    log('  gUM success, tracks=', stream.getVideoTracks().length);
+    stream.getTracks().forEach(t=>t.stop());
+
+    log('step3: show scene');
     document.getElementById('scene').style.display = 'block';
-  } catch (e) {
-    alert("getUserMedia error: " + (e && e.message ? e.message : e));
-    console.error(e);
+    log('✅ DONE (ここまで来ればZappar起動条件は満たせます)');
+  }catch(e){
+    log('❌ error:', e && e.name ? `${e.name}: ${e.message}` : e);
   }
-});
+};
+</script>
