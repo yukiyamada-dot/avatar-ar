@@ -1,30 +1,95 @@
 <!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Camera Permission Test</title>
-<style>
-  body{margin:0;background:#000;color:#fff;font:14px/1.5 system-ui;padding:16px}
-  #v{width:100%;max-width:480px;aspect-ratio:4/3;background:#111}
-  #log{white-space:pre-wrap;background:#111;padding:8px;border-radius:8px;margin-top:12px}
-  button{padding:10px 14px;border:0;border-radius:10px}
-</style>
-<h1>Camera Permission Test</h1>
-<p>Safariでこのページを直接開き、ボタンを押してください。</p>
-<button id="btn">カメラを試す</button>
-<video id="v" autoplay playsinline muted></video>
-<pre id="log"></pre>
-<script>
-const v = document.getElementById('v');
-const log = (...a)=>{document.getElementById('log').textContent += a.join(' ')+'\n';};
-document.getElementById('btn').onclick = async () => {
-  log('protocol:', location.protocol);
-  try {
-    // 背面→失敗ならフォールバック
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact:'environment' } }
-    }).catch(()=> navigator.mediaDevices.getUserMedia({ video:true }));
-    v.srcObject = stream;
-    log('✅ getUserMedia success');
-    // 3秒後に停止
-    setTimeout(()=>stream.getTracks().forEach(t=>t.stop()), 3000);
-  } catch(e) {
-    log('❌ getUserMedia error:', e && e.message
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>Yuki WebAR (Markerless + Animation, iPhone)</title>
+
+  <!-- A-Frame -->
+  <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+  <!-- Zappar for A-Frame -->
+  <script src="https://libs.zappar.com/zappar-aframe/2.0.0/zappar-aframe.js"></script>
+
+  <style>
+    html, body { margin:0; height:100%; background:#000; }
+    #gate {
+      position: fixed; inset:0; display:flex; align-items:center; justify-content:center;
+      flex-direction:column; gap:12px; background:#000; color:#fff; z-index:9999; text-align:center; padding:24px;
+    }
+    #gate button {
+      appearance:none; border:0; border-radius:14px; padding:12px 16px;
+      font:15px/1.2 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+      background:#fff; color:#000; box-shadow:0 6px 20px rgba(0,0,0,.25);
+    }
+    #hint {
+      position:fixed; left:10px; top:10px; color:#fff; font:12px/1.4 system-ui; opacity:.85; z-index:10;
+      text-shadow:0 1px 2px rgba(0,0,0,.6);
+    }
+    a-scene { display:none; }
+  </style>
+</head>
+<body>
+  <div id="hint">📱 Safariで開く → 下のボタン → 許可 → 周囲をゆっくり見回す → 安定したら画面タップで固定</div>
+
+  <!-- 互換性＆権限UI（Zappar公式） -->
+  <zappar-compatibility-ui></zappar-compatibility-ui>
+  <zappar-permission-ui></zappar-permission-ui>
+
+  <!-- ユーザー操作で確実に許可を取るゲート -->
+  <div id="gate">
+    <div>ARを開始するにはカメラ許可が必要です。<br><b>Safariで直接</b>このページを開き、下のボタンを押してください。</div>
+    <button id="startBtn">ARを開始</button>
+    <div style="opacity:.75; font-size:12px">うまくいかない時：設定▶Safari▶カメラを許可／このサイトの設定でカメラ許可／httpsでアクセス</div>
+  </div>
+
+  <!-- A-Frame + Zappar（マーカーレス） -->
+  <a-scene id="scene"
+    renderer="alpha:true; antialias:true; physicallyCorrectLights:true"
+    vr-mode-ui="enabled:false" embedded loading-screen="enabled:false">
+
+    <!-- 背面カメラ優先 -->
+    <a-entity id="zapparCamera" zappar-camera="user-facing:false" camera></a-entity>
+
+    <!-- ライト -->
+    <a-entity light="type: directional; intensity: 1" position="1 2 1"></a-entity>
+    <a-entity light="type: ambient; intensity: 0.6"></a-entity>
+
+    <!-- インスタントワールドトラッキング -->
+    <a-entity id="anchor" zappar-instant="placement-mode: true">
+      <!-- 配置ガイド -->
+      <a-entity id="placement"
+        geometry="primitive: ring; radiusInner: 0.08; radiusOuter: 0.1"
+        rotation="-90 0 0"
+        material="color:#ffffff; metalness:0.2; roughness:0.5; opacity:0.9">
+      </a-entity>
+
+      <!-- GLB（アニメ）※スケール小さめ -->
+      <a-entity id="yuki"
+        gltf-model="Yuki.glb"
+        position="0 0 0"
+        rotation="0 180 0"
+        scale="0.08 0.08 0.08"
+        visible="false"
+        animation-mixer="clip:*; loop:repeat; timeScale:1">
+      </a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    const gate = document.getElementById('gate');
+    const scene = document.getElementById('scene');
+    const anchor = document.getElementById('anchor');
+    const placement = document.getElementById('placement');
+    const yuki = document.getElementById('yuki');
+
+    function updateUI(){
+      const isPlacing = anchor.getAttribute('zappar-instant').placementMode;
+      placement.setAttribute('visible', isPlacing);
+      yuki.setAttribute('visible', !isPlacing);
+    }
+
+    // 画面タップで固定
+    document.body.addEventListener('click', (e)=>{
+      if (gate.style.display !== 'none') return;
+      const isPlacing = anchor.getAttribute('zappar-instant').placementMode;
+      if (isPlacing) {
