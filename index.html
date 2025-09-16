@@ -2,7 +2,7 @@
 <html lang="ja">
 <head>
   <meta charset="UTF-8">
-  <title>アニメーション付きARアバター</title>
+  <title>アニメーション付きアバター</title>
   <script type="module" src="https://unpkg.com/@google/model-viewer/dist/model-viewer.min.js"></script>
   <style>
     body {
@@ -20,47 +20,20 @@
       height: 80vh;
       background-color: #f0f0f0;
     }
-    button {
-      margin-top: 10px;
-      padding: 10px 20px;
-      font-size: 16px;
-      cursor: pointer;
-    }
   </style>
 </head>
 <body>
 
-<h1>アニメーション付きARアバター</h1>
+<h1>アニメーション付きアバター</h1>
 
-<!-- GLBモデル表示 -->
-<model-viewer 
-    id="avatarModel"
-    src="avatar.glb"      <!-- GLBファイル -->
+<model-viewer
+    src="Yuki.glb"
     alt="アニメーションアバター"
     auto-rotate
     camera-controls
-    ar
-    ar-modes="webxr scene-viewer quick-look"
     animation-name="all"
     autoplay>
 </model-viewer>
-
-<!-- AR起動ボタン（iOSでも動作） -->
-<button id="enterAR">ARで表示</button>
-
-<script>
-  const modelViewer = document.getElementById('avatarModel');
-  const arButton = document.getElementById('enterAR');
-
-  arButton.addEventListener('click', () => {
-    // WebXR ARを起動
-    if (modelViewer.activateAR) {
-      modelViewer.activateAR();
-    } else {
-      alert("ARモードに対応していません。Safari最新バージョンをお試しください。");
-    }
-  });
-</script>
 
 </body>
 </html>
