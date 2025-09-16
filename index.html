@@ -93,3 +93,32 @@
       if (gate.style.display !== 'none') return;
       const isPlacing = anchor.getAttribute('zappar-instant').placementMode;
       if (isPlacing) {
+        anchor.setAttribute('zappar-instant', 'placement-mode:false');
+        updateUI();
+      }
+    });
+
+    document.getElementById('startBtn').addEventListener('click', async ()=>{
+      try {
+        // 1) Zapparの権限APIを明示的に呼ぶ
+        const granted = await ZapparAFrame.permission.requestCameraPermissionsAsync();
+        if (!granted) throw new Error('Zappar permission denied');
+
+        // 2) iOSの挙動安定のため、背面→失敗ならフォールバックで一度だけgUM呼ぶ
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact:'environment' } }
+        }).catch(()=> navigator.mediaDevices.getUserMedia({ video:true }));
+        // すぐ停止（Zappar側に任せる）
+        stream.getTracks().forEach(t=>t.stop());
+
+        // 3) シーンを表示して開始
+        gate.style.display = 'none';
+        scene.style.display = 'block';
+        updateUI();
+      } catch (e) {
+        alert('カメラ権限を取得できませんでした。\n設定>Safari>カメラを許可／このサイトの設定でカメラ許可 を確認してください。\n\n詳細: ' + (e && e.message ? e.message : e));
+      }
+    });
+  </script>
+</body>
+</html>
