@@ -1,73 +1,92 @@
 <!doctype html>
-<meta name="viewport" content="width=device-width,initial-scale=1">
-<title>Zappar Permission Test (fixed)</title>
-<script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
-<!-- ❶ Zapparを新しめのバージョンに＆deferで読み込み、onload待ち -->
-<script src="https://libs.zappar.com/zappar-aframe/2.1.0/zappar-aframe.js" defer></script>
-<style>
-  body{margin:0;background:#000;color:#fff;font:14px/1.5 system-ui;padding:16px}
-  #log{white-space:pre-wrap;background:#111;padding:10px;border-radius:10px;margin-top:12px}
-  button{padding:10px 14px;border:0;border-radius:10px}
-  a-scene{display:none}
-</style>
+<html lang="ja">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1,user-scalable=no" />
+  <title>Yuki WebAR (Markerless + Animation)</title>
 
-<h1>Zappar Permission Test</h1>
-<p>Safariで<strong>直接</strong>開き、「権限を試す」を押してください。</p>
-<button id="btn">権限を試す</button>
-<pre id="log"></pre>
+  <!-- ライブラリ（順番必須：A-Frame → Zappar v1.2.0 / 同期） -->
+  <script src="https://aframe.io/releases/1.4.1/aframe.min.js"></script>
+  <script src="https://libs.zappar.com/zappar-aframe/1.2.0/zappar-aframe.js"></script>
 
-<zappar-compatibility-ui></zappar-compatibility-ui>
-<zappar-permission-ui></zappar-permission-ui>
+  <style>
+    html, body { margin:0; height:100%; background:#000; }
+    #gate { position: fixed; inset:0; display:flex; align-items:center; justify-content:center; flex-direction:column;
+      gap:12px; background:#000; color:#fff; z-index:9999; text-align:center; padding:24px; }
+    #gate button { appearance:none; border:0; border-radius:14px; padding:12px 16px; font:15px/1.2 system-ui;
+      background:#fff; color:#000; box-shadow:0 6px 20px rgba(0,0,0,.25); }
+    #hint { position:fixed; left:10px; top:10px; color:#fff; font:12px/1.4 system-ui; opacity:.85; z-index:10;
+      text-shadow:0 1px 2px rgba(0,0,0,.6); }
+    a-scene { display:none; }
+  </style>
+</head>
+<body>
+  <div id="hint">📱 Safariで開く → 下のボタン → 許可 → 周囲を見回す → 安定したら画面タップで固定</div>
 
-<a-scene id="scene" embedded vr-mode-ui="enabled:false">
-  <a-entity zappar-camera="user-facing:false" camera></a-entity>
-</a-scene>
+  <zappar-compatibility-ui></zappar-compatibility-ui>
+  <zappar-permission-ui></zappar-permission-ui>
 
-<script>
-const log = (...a)=>{document.getElementById('log').textContent += a.join(' ')+'\n';};
+  <div id="gate">
+    <div>ARを開始するにはカメラ許可が必要です。<br><b>Safariで直接</b>このページを開き、下のボタンを押してください。</div>
+    <button id="startBtn">ARを開始</button>
+  </div>
 
-// ❷ ZapparAFrameのロードを待つユーティリティ
-function waitForZappar(timeoutMs=5000){
-  return new Promise((resolve,reject)=>{
-    const start=Date.now();
-    (function tick(){
-      if (window.ZapparAFrame) return resolve();
-      if (Date.now()-start>timeoutMs) return reject(new Error('ZapparAFrame not loaded'));
-      requestAnimationFrame(tick);
-    })();
-  });
-}
+  <a-scene id="scene" renderer="alpha:true; antialias:true; physicallyCorrectLights:true"
+           vr-mode-ui="enabled:false" embedded loading-screen="enabled:false">
+    <a-entity zappar-camera="user-facing:false" camera></a-entity>
+    <a-entity light="type: directional; intensity: 1" position="1 2 1"></a-entity>
+    <a-entity light="type: ambient; intensity: 0.6"></a-entity>
 
-document.getElementById('btn').onclick = async ()=>{
-  try{
-    log('step0: wait for ZapparAFrame…');
-    await waitForZappar().catch(e=>{ log('  warn:', e.message); });
+    <a-entity id="anchor" zappar-instant="placement-mode: true">
+      <a-entity id="placement" geometry="primitive: ring; radiusInner:0.08; radiusOuter:0.1"
+                rotation="-90 0 0" material="color:#fff; opacity:0.9"></a-entity>
 
-    // ❸ 存在チェックしてから権限APIを呼ぶ（なければスキップ）
-    if (window.ZapparAFrame?.permission?.requestCameraPermissionsAsync){
-      log('step1: Zappar permission request…');
-      const granted = await ZapparAFrame.permission.requestCameraPermissionsAsync();
-      log('  result:', granted);
-      if(!granted){ log('⛔ Zappar permission denied'); return; }
-    } else {
-      log('step1: Zappar permission API not found → スキップ');
+      <!-- GLB（アニメ）。大きければ scale をさらに小さく -->
+      <a-entity id="yuki" gltf-model="Yuki.glb" position="0 0 0" rotation="0 180 0"
+                scale="0.04 0.04 0.04" visible="false"
+                animation-mixer="clip:*; loop:repeat; timeScale:1"></a-entity>
+    </a-entity>
+  </a-scene>
+
+  <script>
+    const gate = document.getElementById('gate');
+    const scene = document.getElementById('scene');
+    const anchor = document.getElementById('anchor');
+    const placement = document.getElementById('placement');
+    const yuki = document.getElementById('yuki');
+
+    function updateUI(){
+      const isPlacing = anchor.getAttribute('zappar-instant').placementMode;
+      placement.setAttribute('visible', isPlacing);
+      yuki.setAttribute('visible', !isPlacing);
     }
 
-    log('step2: getUserMedia…');
-    const stream = await navigator.mediaDevices.getUserMedia({
-      video: { facingMode: { exact:'environment' } }
-    }).catch(async (e)=>{
-      log('  environment failed:', e && e.name ? `${e.name}: ${e.message}` : e);
-      return navigator.mediaDevices.getUserMedia({ video:true });
+    // 画面タップで固定
+    document.body.addEventListener('click', ()=>{
+      if (gate.style.display !== 'none') return;
+      const isPlacing = anchor.getAttribute('zappar-instant').placementMode;
+      if (isPlacing) { anchor.setAttribute('zappar-instant', 'placement-mode:false'); updateUI(); }
     });
-    log('  gUM success, tracks=', stream.getVideoTracks().length);
-    stream.getTracks().forEach(t=>t.stop());
 
-    log('step3: show scene');
-    document.getElementById('scene').style.display = 'block';
-    log('✅ DONE');
-  }catch(e){
-    log('❌ error:', e && e.name ? `${e.name}: ${e.message}` : e);
-  }
-};
-</script>
+    document.getElementById('startBtn').addEventListener('click', async ()=>{
+      try {
+        // v1.2.0 の権限APIでダイアログを出す
+        const granted = await ZapparAFrame.permission.requestCameraPermissionsAsync();
+        if (!granted) throw new Error('Zappar permission denied');
+
+        // 端末安定化のため一度だけgUM（すぐ停止）
+        const stream = await navigator.mediaDevices.getUserMedia({
+          video: { facingMode: { exact:'environment' } }
+        }).catch(()=> navigator.mediaDevices.getUserMedia({ video:true }));
+        stream.getTracks().forEach(t=>t.stop());
+
+        gate.style.display = 'none';
+        scene.style.display = 'block';
+        updateUI();
+      } catch (e) {
+        alert('カメラ初期化に失敗しました。\n' + (e && e.message ? e.message : e));
+      }
+    });
+  </script>
+</body>
+</html>
