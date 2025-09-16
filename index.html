@@ -3,80 +3,95 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>AR 3D Avatar - Three.js + WebXR</title>
+  <title>AR 3D Avatar - Yuki</title>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js"></script>
+  <script type="module" src="https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/webxr/ARButton.js"></script>
   <style>
-    body { margin: 0; overflow: hidden; }
+    body { margin: 0; overflow: hidden; font-family: sans-serif; background: #f9f9f9; }
+    #ios-link { display: none; text-align: center; margin-top: 40px; }
+    #ios-link img { border: 1px solid #ccc; border-radius: 8px; }
     canvas { display: block; }
   </style>
 </head>
 <body>
+
+<!-- iOS用のARリンク（Quick Look） -->
+<div id="ios-link">
+  <a rel="ar" href="Yuki_02.usdz">
+    <img src="Yuki_thumbnail.png" alt="3D Avatar Yuki" style="width:300px;">
+    <br>iOSでAR表示
+  </a>
+</div>
 
 <script type="module">
 import * as THREE from 'https://cdn.jsdelivr.net/npm/three@0.161.0/build/three.module.js';
 import { GLTFLoader } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/loaders/GLTFLoader.js';
 import { ARButton } from 'https://cdn.jsdelivr.net/npm/three@0.161.0/examples/jsm/webxr/ARButton.js';
 
-let scene, camera, renderer, mixer, clock;
+function isIOS() {
+    return /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
+}
 
-init();
-animate();
+function isAndroid() {
+    return /Android/.test(navigator.userAgent);
+}
 
-function init() {
-    scene = new THREE.Scene();
-    scene.background = new THREE.Color(0xeeeeee);
-
-    camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
-
-    renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
+// iOS の場合は Quick Look リンクを表示
+if (isIOS()) {
+    document.getElementById('ios-link').style.display = 'block';
+} 
+// Android の場合は WebXR で GLB を表示
+else if (isAndroid()) {
+    let scene = new THREE.Scene();
+    let camera = new THREE.PerspectiveCamera(70, window.innerWidth / window.innerHeight, 0.01, 20);
+    let renderer = new THREE.WebGLRenderer({ antialias: true, alpha: true });
     renderer.setSize(window.innerWidth, window.innerHeight);
     renderer.xr.enabled = true;
     document.body.appendChild(renderer.domElement);
 
-    // ARボタン
+    // ARボタンを追加
     document.body.appendChild(ARButton.createButton(renderer, { requiredFeatures: ['hit-test'] }));
 
-    // ライト
+    // 環境光
     const light = new THREE.HemisphereLight(0xffffff, 0xbbbbff, 1);
     light.position.set(0.5, 1, 0.25);
     scene.add(light);
 
-    // GLBロード
+    // アニメーション用の設定
+    let mixer, clock = new THREE.Clock();
+
+    // GLBをロード
     const loader = new GLTFLoader();
-    loader.load('Yuki.glb', function(gltf) {
+    loader.load('Yuki.glb', function(gltf){
         const model = gltf.scene;
         model.scale.set(0.5, 0.5, 0.5);
         scene.add(model);
 
-        // アニメーション
         if (gltf.animations && gltf.animations.length) {
             mixer = new THREE.AnimationMixer(model);
-            gltf.animations.forEach((clip) => {
-                mixer.clipAction(clip).play();
-            });
+            gltf.animations.forEach((clip)=> mixer.clipAction(clip).play());
         }
     });
 
-    clock = new THREE.Clock();
+    // リサイズ対応
+    window.addEventListener('resize', ()=>{
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+    });
 
-    window.addEventListener('resize', onWindowResize);
+    // レンダリングループ
+    renderer.setAnimationLoop(()=>{
+        const delta = clock.getDelta();
+        if (mixer) mixer.update(delta);
+        renderer.render(scene, camera);
+    });
 }
-
-function onWindowResize() {
-    camera.aspect = window.innerWidth / window.innerHeight;
-    camera.updateProjectionMatrix();
-    renderer.setSize(window.innerWidth, window.innerHeight);
-}
-
-function animate() {
-    renderer.setAnimationLoop(render);
-}
-
-function render() {
-    const delta = clock.getDelta();
-    if (mixer) mixer.update(delta);
-    renderer.render(scene, camera);
+// どちらでもない場合（PCなど）は注意文表示
+else {
+    document.body.innerHTML = "<p style='text-align:center;margin-top:40px;'>このデモはスマートフォンでご覧ください。</p>";
 }
 </script>
-
 </body>
 </html>
